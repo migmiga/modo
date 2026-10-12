@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+@theme {
+  /* Dub DESIGN.md palette — colors, radii and shadows replace the previous
+     design system wholesale. Spacing already matches Tailwind's default 4px
+     scale (4/8/12/16/20/24/28/32/36/40/48/56/64/80/96/112 = p-1..p-28) so it
+     is left untouched. Font stays Pretendard (fixed) instead of swapping in
+     Dub's Satoshi/Inter pairing — see --font-sans below. */
+  --color-canvas-white: #ffffff;
+  --color-paper-mist: #f5f5f5;
+  --color-ash: #e5e5e5;
+  --color-smoke: #d4d4d4;
+  --color-pebble: #c8c8c8;
+  --color-silver: #a3a3a3;
+  --color-fog: #737373;
+  --color-steel: #525252;
+  --color-slate: #404040;
+  --color-graphite: #262626;
+  --color-charcoal: #171717;
+  --color-midnight-ink: #0a0a0a;
+  --color-chalk: #ffffff;
+
+  --color-electric-blue: #2563eb;
+  --color-deep-sapphire: #1e40af;
+  --color-soft-mint: #dcfce7;
+  --color-vivid-green: #16a34a;
+  --color-tangerine: #ea580c;
+  --color-lavender: #7c3aed;
+
+  /* Semantic roles */
+  --color-background: var(--color-paper-mist);
+  --color-foreground: var(--color-charcoal);
+  --color-surface: var(--color-canvas-white);
+  --color-border: var(--color-ash);
+  --color-muted: var(--color-steel);
+  --color-muted-subtle: var(--color-silver);
+  --color-secondary-text: var(--color-graphite);
+
+  /* Two-tier accent per DESIGN.md: Electric Blue is the "talking" color for
+     links/active states/highlights, Midnight Ink is the one committed
+     primary-button fill (Dub's Filled Dark CTA / Primary Action Fill). */
+  --color-accent: var(--color-electric-blue);
+  --color-accent-strong: var(--color-midnight-ink);
+  --color-accent-foreground: var(--color-canvas-white);
+
+  /* Dub's palette has no red — Tangerine (orange) carries danger/urgency,
+     Vivid Green carries success, both used as supporting accents only. */
+  --color-danger: var(--color-tangerine);
+  --color-success: var(--color-vivid-green);
+  --color-saturday: var(--color-fog);
+  --color-sunday: var(--color-slate);
+
+  /* Type scale — sizes/line-heights follow DESIGN.md's Inter/display scale;
+     family stays Pretendard throughout (no separate display typeface). */
+  --text-caption: 11px;
+  --text-caption--line-height: 1.5;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.43;
+  --text-body: 16px;
+  --text-body--line-height: 1.5;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.56;
+  --text-subheading: 24px;
+  --text-subheading--line-height: 1.33;
+  --text-heading-sm: 36px;
+  --text-heading-sm--line-height: 1.11;
+  --text-heading: 48px;
+  --text-heading--line-height: 1;
+
+  /* Single global typeface (Pretendard, fixed per request) — font-heading is
+     kept as an alias so the existing `font-heading` class keeps working. */
+  --font-sans: var(--font-pretendard), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Segoe UI", system-ui, Roboto, "Helvetica Neue", "Malgun Gothic", sans-serif;
+  --font-heading: var(--font-sans);
+
+  /* Radii (DESIGN.md: 8px buttons, 6px inputs, 12px cards, 9999px tags/badges) */
+  --radius-btn: 8px;
+  --radius-input: 6px;
+  --radius-card: 12px;
+  --radius-badge: 9999px;
+
+  /* Shadows — DESIGN.md is border-first: cards rely on a 1px border, not
+     elevation. shadow-card is Dub's barely-there "subtle" lift (reserved for
+     primary buttons in DESIGN.md, reused here since it is near-invisible on
+     flat cards too). shadow-pop is Dub's "md" shadow for floating panels
+     (modals, tooltips). shadow-badge reuses Dub's 4px ring for the one
+     emphasized pill that needs to stand out. */
+  --shadow-card: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+  --shadow-pop: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px;
+  --shadow-badge: rgba(0, 0, 0, 0.1) 0px 0px 0px 4px;
+
+  /* Input borders are a deliberate DESIGN.md signature: near-black instead of
+     the usual hairline gray, so form fields read as important. */
+  --color-input-border: var(--color-midnight-ink);
+}
+
+html {
+  /* Reserves the vertical scrollbar's gutter on every page regardless of
+     whether that page's content is actually tall enough to scroll, so
+     document.documentElement.clientWidth — and everything measured from it,
+     like the lg:pl-[300px] main content wrapper's width — stays constant
+     across navigations and across a page's own height changes (e.g. the
+     타임라인 잠시 쉬기/완료하기 modals). Without this, a page/state that
+     happens to cross the viewport-height threshold loses ~17px (the
+     scrollbar's width) that other pages/states keep, producing the content
+     width mismatch diagnosed via LAYOUT_DEBUG. Left-side position (sidebar +
+     content padding) is untouched — this only reserves gutter on the
+     scrollbar's (right) edge. Scrolling itself is unaffected: pages that
+     need to scroll still scroll normally.
+     Supported in all current major browsers; a browser without it simply
+     ignores the property and falls back to the previous (non-reserved)
+     behavior for that browser only. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+@keyframes pop-check {
+  0% {
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-pop-check {
+  animation: pop-check 220ms ease-out;
+}
+
+@keyframes retro-confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-rot)) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.animate-retro-confetti {
+  animation: retro-confetti-burst 1200ms ease-out forwards;
+}

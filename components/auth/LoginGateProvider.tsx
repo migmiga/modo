@@ -1,0 +1,127 @@
+"use client";
+
+import { createContext, useCallback, useContext, useRef, useState } from "react";
+
+import { useAuthStore } from "@/lib/auth";
+import { useAppStore } from "@/lib/store";
+
+import { LoginModal } from "./LoginModal";
+import { ProfileSetupModal } from "./ProfileSetupModal";
+
+interface OpenOptions {
+  /** false일 때는 팝업을 닫을 때 포커스를 복귀시키지 않는다 — 입력란의
+   *  onFocus가 직접 호출하는 경우(아래 LoginModal 사용처 참고) 트리거 자체가
+   *  그 입력란이라, 그대로 복귀시키면 다시 포커스 → 다시 팝업이 열리는
+   *  무한 루프가 생긴다. */
+  restoreFocus?: boolean;
+}
+
+// `any[]` (not `never[]`) is required here so TS infers T's real parameter
+// types from the function literal passed in, instead of collapsing them to
+// `never` — see https://github.com/microsoft/TypeScript/issues/27387.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RequireLogin = <T extends (...args: any[]) => unknown>(
+  fn: T
+) => (...args: Parameters<T>) => ReturnType<T> | undefined;
+
+interface LoginGateContextValue {
+  /** 로그인 + 프로필 설정까지 모두 끝난 상태. */
+  isOnboarded: boolean;
+  open: (options?: OpenOptions) => void;
+  requireLogin: RequireLogin;
+}
+
+const LoginGateContext = createContext<LoginGateContextValue | null>(null);
+
+// 로그인 팝업과 프로필 설정 팝업은 이 하나의 상태로만 전환된다 — 둘이 동시에
+// 뜨는 경우가 구조적으로 불가능하다("none"이 아닌 값은 항상 하나뿐).
+type GateModal = "none" | "login" | "profile";
+
+export function LoginGateProvider({ children }: { children: React.ReactNode }) {
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const profile = useAppStore((s) => s.profile);
+  const isOnboarded = isLoggedIn && profile !== null;
+
+  const [modal, setModal] = useState<GateModal>("none");
+  const triggerRef = useRef<HTMLElement | null>(null);
+
+  const closeAndRestoreFocus = useCallback(() => {
+    setModal("none");
+    triggerRef.current?.focus();
+    triggerRef.current = null;
+  }, []);
+
+  // 이미 로그인 + 프로필 설정까지 끝났으면 아무것도 하지 않고, 아니라면 둘 중
+  // 아직 안 끝난 단계(로그인 → 프로필 설정 순서)를 연다.
+  const open = useCallback((options: OpenOptions = {}) => {
+    const loggedIn = useAuthStore.getState().isLoggedIn;
+    const hasProfile = useAppStore.getState().profile !== null;
+    if (loggedIn && hasProfile) return;
+
+    const active = document.activeElement;
+    triggerRef.current =
+      options.restoreFocus === false ? null : active instanceof HTMLElement ? active : null;
+    setModal(loggedIn ? "profile" : "login");
+  }, []);
+
+  // ESC/바깥 클릭/X — 저장 없이 그냥 닫는다. 로그인 필요 기능은 실행되지
+  // 않고, 프로필이 비어 있으면 비어 있는 채로 남아 다음에 다시 뜬다.
+  const dismiss = useCallback(() => {
+    closeAndRestoreFocus();
+  }, [closeAndRestoreFocus]);
+
+  // 로그인 성공(지금은 개발용 버튼만 가능) — 프로필이 아직 없는 최초 가입자라면
+  // 곧바로 프로필 설정 팝업으로 이어지고, 이미 프로필이 있는 기존 회원이라면
+  // 그대로 닫힌다.
+  const handleLoginSucceeded = useCallback(() => {
+    if (useAppStore.getState().profile === null) {
+      setModal("profile");
+    } else {
+      closeAndRestoreFocus();
+    }
+  }, [closeAndRestoreFocus]);
+
+  const handleProfileCompleted = useCallback(() => {
+    closeAndRestoreFocus();
+  }, [closeAndRestoreFocus]);
+
+  const requireLogin = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see RequireLogin's own note above.
+    function requireLogin<T extends (...args: any[]) => unknown>(fn: T) {
+      return (...args: Parameters<T>): ReturnType<T> | undefined => {
+        const loggedIn = useAuthStore.getState().isLoggedIn;
+        const hasProfile = useAppStore.getState().profile !== null;
+        if (loggedIn && hasProfile) {
+          return fn(...args) as ReturnType<T>;
+        }
+        open();
+        return undefined;
+      };
+    },
+    [open]
+  );
+
+  return (
+    <LoginGateContext.Provider value={{ isOnboarded, open, requireLogin }}>
+      {children}
+      <LoginModal open={modal === "login"} onDismiss={dismiss} onLoginSucceeded={handleLoginSucceeded} />
+      <ProfileSetupModal
+        open={modal === "profile"}
+        onDismiss={dismiss}
+        onComplete={handleProfileCompleted}
+      />
+    </LoginGateContext.Provider>
+  );
+}
+
+export function useLoginGate() {
+  const ctx = useContext(LoginGateContext);
+  if (!ctx) throw new Error("useLoginGate must be used within LoginGateProvider");
+  return ctx;
+}
+
+/** 로그인 + 프로필 설정까지 끝난 상태면 즉시 실행, 아니면 필요한 단계의
+ *  팝업만 열고 원래 동작은 실행하지 않는다. */
+export function useRequireLogin() {
+  return useLoginGate().requireLogin;
+}
