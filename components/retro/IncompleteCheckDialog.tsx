@@ -27,7 +27,9 @@ export function IncompleteCheckDialog({
               key={task.task_id}
               className="rounded-card border border-border bg-surface px-3 py-2.5"
             >
-              <p className="text-sm leading-snug">{task.title}</p>
+              <p className="text-sm leading-snug" data-amp-mask="">
+                {task.title}
+              </p>
               <p className="mt-0.5 text-xs text-muted">{formatDisplayDate(task.scheduled_date)}</p>
             </li>
           ))}

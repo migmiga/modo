@@ -48,7 +48,9 @@ export function ConnectedAccountRow() {
         {/* 이메일을 못 받은 경우 임의로 채우지 않고 빈 공간만 남겨, 칩은
             항상 오른쪽 끝에 고정된다. */}
         {email ? (
-          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{email}</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-foreground" data-amp-mask="">
+            {email}
+          </span>
         ) : (
           <span className="min-w-0 flex-1" />
         )}

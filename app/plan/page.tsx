@@ -33,7 +33,9 @@ export default function CurrentPlanPage() {
     <Container>
       <div className="flex flex-1 flex-col gap-6">
         <div className="space-y-1">
-          <h1 className="text-lg font-medium">{goal.title}</h1>
+          <h1 className="text-lg font-medium" data-amp-mask="">
+            {goal.title}
+          </h1>
           <p className="text-sm text-muted">
             {formatDisplayDate(goal.start_date)} ~ {formatDisplayDate(goal.target_date)}
           </p>
@@ -66,6 +68,7 @@ export default function CurrentPlanPage() {
                           "leading-snug",
                           task.status === "completed" && "text-muted line-through"
                         )}
+                        data-amp-mask=""
                       >
                         {task.title}
                       </span>

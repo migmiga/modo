@@ -122,7 +122,11 @@ export function TagInput({
   }
 
   return (
-    <div className="space-y-2">
+    // 태그는 사용자가 직접 입력하는 자유 텍스트라 Amplitude elementInteractions가
+    // 클릭을 수집할 때(이 입력 영역 전체가 Field의 <label> 안에 있어, 태그 칩을
+    // 클릭하면 그 label의 보이는 텍스트 전체가 "[Amplitude] Element Text"로
+    // 전송될 수 있다) 태그 값이 함께 전송되지 않도록 전체를 마스킹한다.
+    <div className="space-y-2" data-amp-mask="">
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {value.map((tag) => (

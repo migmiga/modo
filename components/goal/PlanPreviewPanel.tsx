@@ -56,7 +56,9 @@ export function PlanPreviewPanel({
     <Card dataLd="card-ai-planner-preview" className="flex flex-col space-y-5 p-5 lg:h-full lg:min-h-0">
       <div className="space-y-2 border-b border-border pb-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-medium">{goal.title}</h2>
+          <h2 className="text-lg font-medium" data-amp-mask="">
+            {goal.title}
+          </h2>
           <span className="inline-flex shrink-0 items-center gap-1 rounded-badge border-[1.5px] border-deep-sapphire bg-transparent px-2.5 py-1 text-xs font-medium text-deep-sapphire">
             AI가 만든 계획
           </span>

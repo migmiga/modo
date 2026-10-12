@@ -64,7 +64,9 @@ export function ArchiveDetailModal({
               </span>
             )}
           </div>
-          <h3 className="text-lg font-medium">{goal.title}</h3>
+          <h3 className="text-lg font-medium" data-amp-mask="">
+            {goal.title}
+          </h3>
           <p className="text-sm text-muted">
             {formatShortDate(goal.start_date)} ~ {formatShortDate(goal.target_date)} · 평일{" "}
             {goal.weekday_minutes}분 · 주말 {goal.weekend_minutes}분

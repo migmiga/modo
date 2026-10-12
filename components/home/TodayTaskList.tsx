@@ -171,7 +171,11 @@ export function TodayTaskList({
             </button>
 
             <div className="flex min-w-0 flex-1 flex-col gap-[8px]">
-              <p className={cn("truncate text-sm leading-none", done && "text-steel")} title={task.title}>
+              <p
+                className={cn("truncate text-sm leading-none", done && "text-steel")}
+                title={task.title}
+                data-amp-mask=""
+              >
                 {task.title}
               </p>
               <p className={cn("text-xs leading-none", done ? "text-fog" : "text-muted")}>

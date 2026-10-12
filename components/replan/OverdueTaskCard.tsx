@@ -143,7 +143,9 @@ export function OverdueTaskCard({
                   {/* 제목이 길어지면 "· 예상 N분"이 자연스럽게 다음 줄로 내려가도록
                       flex가 아닌 한 덩어리의 줄바꿈 가능한 텍스트로 둔다. */}
                   <p className="break-words leading-snug">
-                    <span className="text-sm font-medium text-foreground">{item.title}</span>{" "}
+                    <span className="text-sm font-medium text-foreground" data-amp-mask="">
+                      {item.title}
+                    </span>{" "}
                     <span className="text-xs text-fog">· 예상 {item.duration_minutes}분</span>
                   </p>
                   {item.state === "excluded" ? (

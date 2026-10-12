@@ -31,6 +31,7 @@ export function TaskCard({ tasks, emptyMessage }: { tasks: Task[]; emptyMessage?
             "truncate px-2 py-2 text-xs text-foreground",
             i !== tasks.length - 1 && "border-b border-paper-mist"
           )}
+          data-amp-mask=""
         >
           {task.title}
         </li>

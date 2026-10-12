@@ -119,7 +119,9 @@ export function SideNav() {
             {nickname.slice(0, 1)}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{nickname}</p>
+            <p className="truncate text-sm font-medium text-foreground" data-amp-mask="">
+              {nickname}
+            </p>
             <p className="truncate text-xs text-muted">
               {[fieldLabel, occupationLabel].filter(Boolean).join(" · ")}
             </p>

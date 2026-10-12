@@ -258,7 +258,7 @@ export function MemoTable({
                         ) : (
                           <File size={16} className="shrink-0 text-muted" aria-hidden="true" />
                         )}
-                        <span className="truncate" title={note.title}>
+                        <span className="truncate" title={note.title} data-amp-mask="">
                           {note.title}
                         </span>
                       </button>

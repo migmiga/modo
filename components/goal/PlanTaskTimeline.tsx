@@ -80,6 +80,7 @@ export function PlanTaskTimeline({
                             "flex-1 leading-snug",
                             isCancelled && "text-muted line-through"
                           )}
+                          data-amp-mask=""
                         >
                           {task.title}
                         </span>

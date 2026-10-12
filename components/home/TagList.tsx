@@ -109,7 +109,7 @@ function TagListInteractive({
   }
 
   return (
-    <div className="relative flex min-w-0 items-center gap-1 overflow-hidden">
+    <div className="relative flex min-w-0 items-center gap-1 overflow-hidden" data-amp-mask="">
       {/* Invisible, out-of-flow measurement clones — identical markup to the
           real chip/badge below, so their offsetWidth is the true, never-
           truncated size, with zero visual footprint of their own. */}

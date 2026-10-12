@@ -99,7 +99,9 @@ export function ArchiveCard({
         )}
       </div>
 
-      <h3 className="line-clamp-2 text-base font-medium">{plan.goal.title}</h3>
+      <h3 className="line-clamp-2 text-base font-medium" data-amp-mask="">
+        {plan.goal.title}
+      </h3>
       <p className="text-xs text-muted">
         {formatDateRange(plan.goal.start_date, plan.goal.target_date)}
       </p>

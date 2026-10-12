@@ -521,6 +521,7 @@ function StepTimeline({
                     step.isRunningNow ? "text-accent" : "text-foreground"
                   )}
                   style={{ left: `${barLeft}px`, top: `${step.i * ROW_HEIGHT_PX}px` }}
+                  data-amp-mask=""
                 >
                   {step.task.title}
                 </p>

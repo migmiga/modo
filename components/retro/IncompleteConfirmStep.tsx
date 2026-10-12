@@ -75,7 +75,9 @@ export function IncompleteConfirmStep({
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <p className="truncate text-sm leading-snug">{task.title}</p>
+                    <p className="truncate text-sm leading-snug" data-amp-mask="">
+                      {task.title}
+                    </p>
                     <p className="text-xs text-muted">{formatDisplayDate(task.scheduled_date)}</p>
                   </span>
                 </button>
