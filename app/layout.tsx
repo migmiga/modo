@@ -17,9 +17,32 @@ const pretendard = localFont({
   display: "swap",
 });
 
+// OG 이미지(public/images/og-image.png)는 디자이너가 만든 public/images/OG
+// 태그.svg(1200x630, 원본 그대로 보존)를 그대로 PNG로 레스터화한 것 —
+// SNS 링크 미리보기(카카오톡/트위터 등)가 og:image로 SVG를 안정적으로
+// 지원하지 않아 PNG가 필요하다. 디자인을 다시 그리지 않고 변환만 한다.
+const SITE_URL = "https://modo-blond.vercel.app";
+const OG_IMAGE_PATH = "/images/og-image.png";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "MODO",
   description: "AI가 목표를 실행 가능한 일일 계획으로 만들고, 상황에 맞춰 다시 조정해주는 목표 관리 서비스",
+  openGraph: {
+    title: "MODO",
+    description: "AI가 목표를 실행 가능한 일일 계획으로 만들고, 상황에 맞춰 다시 조정해주는 목표 관리 서비스",
+    url: SITE_URL,
+    siteName: "MODO",
+    images: [{ url: OG_IMAGE_PATH, width: 1200, height: 630 }],
+    locale: "ko_KR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MODO",
+    description: "AI가 목표를 실행 가능한 일일 계획으로 만들고, 상황에 맞춰 다시 조정해주는 목표 관리 서비스",
+    images: [OG_IMAGE_PATH],
+  },
   icons: {
     // SVG listed first — scalable, so supporting browsers prefer it over the
     // fixed-size PNG fallbacks below (sizes: "any" is the standard signal
