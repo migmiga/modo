@@ -29,6 +29,9 @@ interface LoginGateContextValue {
   isOnboarded: boolean;
   open: (options?: OpenOptions) => void;
   requireLogin: RequireLogin;
+  /** 이미 온보딩된 사용자가 프로필을 다시 열어 고치는 용도 — open()은 이미
+   *  로그인+프로필이 끝난 상태면 아무것도 하지 않으므로 별도로 둔다. */
+  openProfileEdit: () => void;
 }
 
 const LoginGateContext = createContext<LoginGateContextValue | null>(null);
@@ -101,6 +104,14 @@ export function LoginGateProvider({ children }: { children: React.ReactNode }) {
     closeAndRestoreFocus();
   }, [closeAndRestoreFocus]);
 
+  // open()과 달리 "이미 로그인+프로필 완료" 상태를 막지 않는다 — 계정 메뉴의
+  // "프로필 수정하기"가 호출하는 유일한 경로.
+  const openProfileEdit = useCallback(() => {
+    const active = document.activeElement;
+    triggerRef.current = active instanceof HTMLElement ? active : null;
+    setModal("profile");
+  }, []);
+
   // 로그인 성공(지금은 개발용 버튼만 가능) — 프로필이 아직 없는 최초 가입자라면
   // 곧바로 프로필 설정 팝업으로 이어지고, 이미 프로필이 있는 기존 회원이라면
   // 그대로 닫힌다.
@@ -133,7 +144,7 @@ export function LoginGateProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <LoginGateContext.Provider value={{ isOnboarded, open, requireLogin }}>
+    <LoginGateContext.Provider value={{ isOnboarded, open, requireLogin, openProfileEdit }}>
       {children}
       <LoginModal open={modal === "login"} onDismiss={dismiss} onLoginSucceeded={handleLoginSucceeded} />
       <ProfileSetupModal

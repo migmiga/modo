@@ -205,6 +205,15 @@ export function switchAccountStorage(key: string): Promise<void> {
   pendingHydrationUnsub?.();
   pendingHydrationUnsub = null;
 
+  // 전환 시작과 동시에 메모리 상태를 완전히 비운다 — 그렇지 않으면 이
+  // rehydrate가 끝나기 전까지(비동기 구간) 이전 계정의 profile/goal/tasks가
+  // 그대로 화면에 남아있는다. settledKey가 이미 null이라 이 setState가
+  // 트리거하는 setItem()은 guardedRawStorage가 막아 디스크에는 쓰이지
+  // 않는다 — 메모리만 비운다. hydrated를 다시 false로 내려서, 이미 거의
+  // 모든 화면(SideNav/dashboard/archive 등)이 쓰고 있는 "아직 안 끝남" 가드가
+  // 최초 부팅 때처럼 이번 전환 중에도 똑같이 걸리게 한다.
+  useAppStore.setState({ ...INITIAL_STATE, hydrated: false });
+
   useAppStore.persist.setOptions({ name: key });
 
   return new Promise<void>((resolve) => {

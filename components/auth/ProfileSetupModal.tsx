@@ -30,6 +30,7 @@ export function ProfileSetupModal({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const setProfile = useAppStore((s) => s.setProfile);
+  const profile = useAppStore((s) => s.profile);
 
   const [nickname, setNickname] = useState("");
   const [field, setField] = useState<ProfileField | "">("");
@@ -38,16 +39,23 @@ export function ProfileSetupModal({
 
   useEffect(() => {
     if (!open) return;
-    // 매번 새로 열릴 때 이전 입력이 남아있지 않도록 초기화. setTimeout(0)으로
+    // 매번 새로 열릴 때 이전 입력이 남아있지 않도록 초기화한다. 이미 저장된
+    // profile이 있으면(계정 메뉴의 "프로필 수정하기") 그 값으로 시작하고,
+    // 없으면(최초 가입) 빈 값 — 기존 생성 플로우와 동일하다. setTimeout(0)으로
     // 미뤄 이펙트 본문에서 곧바로 setState하지 않는다(react-hooks/set-state-in-effect) —
     // 같은 패턴을 app/page.tsx의 retroFlow 우선순위 이펙트에서도 쓴다.
     const timeoutId = setTimeout(() => {
-      setNickname("");
-      setField("");
-      setOccupation("");
+      setNickname(profile?.nickname ?? "");
+      setField(profile?.field ?? "");
+      setOccupation(profile?.occupation ?? "");
       setDuplicateNotice(false);
     }, 0);
     return () => clearTimeout(timeoutId);
+    // profile은 의도적으로 deps에서 제외한다: 열려 있는 동안 다른 전역
+    // 변경으로 profile이 바뀌어도 폼을 재초기화하지 않는다 — open이
+    // true→true로 유지되는 동안은 "이 모달이 열릴 때의 값"만 한 번 반영하면
+    // 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {

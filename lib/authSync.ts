@@ -43,6 +43,19 @@ export function startAuthSync(): () => void {
     const myGeneration = ++generation;
     const key = userId ? accountStorageKey(userId) : GUEST_STORAGE_KEY;
 
+    // 로그아웃(userId null)은 저장소를 게스트로 전환하기 "전에" 로그인
+    // 플래그부터 내린다. switchAccountStorage()의 rehydrate가 끝나는 순간
+    // profile/hydrated가 게스트 값으로 먼저 바뀌는데, 그때까지 isLoggedIn이
+    // true로 남아있으면 LoginGateProvider가 "막 로그인했는데 프로필이 없는
+    // 신규 사용자"로 오판해 프로필 설정 팝업을 잘못 띄운다. 로그인(userId
+    // 있음) 분기는 반대로 이 순서를 유지해야 한다 — 전환이 끝나 그 계정의
+    // 실제 profile이 로드된 뒤에야 isLoggedIn을 true로 바꿔야, 기존
+    // 사용자에게도 "프로필 없음" 화면이 잠깐 깜빡이지 않는다.
+    if (!userId) {
+      useAuthStore.getState().clearSession();
+      resetIdentity();
+    }
+
     await switchAccountStorage(key);
 
     // 대기 중에 더 최신 이벤트가 이미 들어왔다면, 그 이벤트의 applySession이
@@ -53,9 +66,6 @@ export function startAuthSync(): () => void {
     if (userId) {
       useAuthStore.getState().setGoogleSession({ userId, email });
       identifyUser(userId);
-    } else {
-      useAuthStore.getState().clearSession();
-      resetIdentity();
     }
   }
 
