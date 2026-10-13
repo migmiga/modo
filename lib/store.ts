@@ -51,7 +51,8 @@ export interface ReferenceGoalDraft {
 
 const MAX_FAVORITE_ARCHIVES = 5;
 
-interface AppState {
+// --- 계정별 저장 데이터 (merge/partialize가 다루는 대상) ---
+interface AppData {
   hydrated: boolean;
   profile: Profile | null;
   goal: Goal | null;
@@ -75,7 +76,29 @@ interface AppState {
   // duplicate submission can never advance it, and it survives refresh via
   // the same persisted storage as everything else in this store.
   fullRetroSubmitCount: number;
+}
 
+// Named apart from the creator's own object literal so `merge` (below) can
+// fall back to it directly — every account switch resolves to either real
+// stored data for that exact key, or this exact constant, never to whatever
+// happened to still be in memory from the previous account.
+const INITIAL_STATE: AppData = {
+  hydrated: false,
+  profile: null,
+  goal: null,
+  tasks: [],
+  draftPlan: null,
+  draftError: null,
+  archivedPlans: [],
+  favoriteArchiveIds: [],
+  archiveSeeded: false,
+  referenceGoalDraft: null,
+  retrospectives: [],
+  lastIncompleteCheckShownKey: null,
+  fullRetroSubmitCount: 0,
+};
+
+interface AppState extends AppData {
   setHydrated: () => void;
   setProfile: (nickname: string, field: ProfileField, occupation: Occupation) => void;
   createDraftGoal: (input: NewGoalInput) => "success" | "insufficient_time";
@@ -118,22 +141,88 @@ function newId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
+// --- 계정별 저장소 전환 (components/auth/LoginGateProvider.tsx 와는 무관,
+// lib/authSync.ts만 호출한다) ---
+//
+// 비로그인 상태는 레거시 `modo-storage`가 아니라 별도의 게스트 키를 쓴다 —
+// requireLogin으로 막혀 있어 비로그인 상태에서 실제로 쓰기가 일어난 적이
+// 없긴 하지만, 레거시 키를 "읽기조차" 하지 않아야 그 데이터를 절대 건드리지
+// 않는다는 보장이 코드만 봐도 명백해진다.
+export const GUEST_STORAGE_KEY = "modo-storage:guest";
+
+export function accountStorageKey(userId: string): string {
+  return `modo-storage:${userId}`;
+}
+
+// 지금 안전하게 쓸 수 있는 키 — 전환 중(= 아직 rehydrate가 끝나지 않음)에는
+// null이라, 그 사이에 어떤 set()이 호출되든(다른 클릭, 혹은 나중에 비동기
+// 액션이 생기면 그 늦게 끝나는 콜백까지) storage에는 전혀 반영되지 않는다.
+// zustand persist는 모든 액션의 set() 호출마다 즉시
+// storage.setItem(그 순간의 options.name, 전체 state)를 실행하므로(소스
+// 확인됨), "메모리만 리셋"하는 액션으로는 이 틈을 막을 수 없다 — 그래서
+// merge(아래)가 아니라 storage 자체를 감싸는 이 가드가 핵심 안전장치다.
+let settledKey: string | null = null;
+
+function readRawStorage(name: string): string | null {
+  try {
+    return window.localStorage.getItem(name);
+  } catch {
+    return null;
+  }
+}
+
+const guardedRawStorage = {
+  getItem: readRawStorage,
+  setItem: (name: string, value: string) => {
+    if (name !== settledKey) return; // 전환 중이거나 다른 계정 키 — 디스크에 닿지 않게 버린다.
+    try {
+      window.localStorage.setItem(name, value);
+    } catch {
+      // 프라이빗 모드/용량 초과 — 기존 createJSONStorage(() => localStorage)와 동일하게 조용히 무시.
+    }
+  },
+  removeItem: (name: string) => {
+    if (name !== settledKey) return;
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      // ignore
+    }
+  },
+};
+
+let pendingHydrationUnsub: (() => void) | null = null;
+
+// lib/authSync.ts가 로그인/로그아웃/계정 전환마다(그리고 앱 최초 부팅 시)
+// 호출하는 단 하나의 진입점. "settledKey=null로 모든 쓰기를 먼저 잠그고 →
+// 키를 바꾸고 → rehydrate → 그 rehydrate가 실제로 끝난 뒤에만 다시 쓰기를
+// 연다" 순서를 한 곳에 캡슐화해, 호출부가 순서를 틀릴 여지를 없앤다.
+// zustand persist 자체의 hydrationVersion 가드(소스 확인됨)가 "더 최신
+// 전환이 이미 시작됐으면 이전 전환의 완료 콜백은 호출되지 않는다"를 보장해,
+// 전환이 연달아 겹쳐도 가장 마지막 호출만 settledKey를 설정하게 된다.
+export function switchAccountStorage(key: string): Promise<void> {
+  settledKey = null;
+  pendingHydrationUnsub?.();
+  pendingHydrationUnsub = null;
+
+  useAppStore.persist.setOptions({ name: key });
+
+  return new Promise<void>((resolve) => {
+    const unsub = useAppStore.persist.onFinishHydration(() => {
+      unsub();
+      pendingHydrationUnsub = null;
+      settledKey = key;
+      resolve();
+    });
+    pendingHydrationUnsub = unsub;
+    void useAppStore.persist.rehydrate();
+  });
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      hydrated: false,
-      profile: null,
-      goal: null,
-      tasks: [],
-      draftPlan: null,
-      draftError: null,
-      archivedPlans: [],
-      favoriteArchiveIds: [],
-      archiveSeeded: false,
-      referenceGoalDraft: null,
-      retrospectives: [],
-      lastIncompleteCheckShownKey: null,
-      fullRetroSubmitCount: 0,
+      ...INITIAL_STATE,
 
       setHydrated: () => set({ hydrated: true }),
 
@@ -408,9 +497,31 @@ export const useAppStore = create<AppState>()(
       markIncompleteCheckShown: (goalId, date) => set({ lastIncompleteCheckShownKey: `${goalId}:${date}` }),
     }),
     {
-      name: "modo-storage",
-      storage: createJSONStorage(() => localStorage),
+      name: GUEST_STORAGE_KEY,
+      storage: createJSONStorage(() => guardedRawStorage),
       skipHydration: true,
+      // hydrated는 로딩 게이트일 뿐 계정 데이터가 아니다 — 저장되는 JSON에서
+      // 완전히 빼서, 전환 중 hydrated=false를 켜는 행위 자체가 애초에 디스크에
+      // 닿을 데이터가 아니게 만든다(위 storage 가드와는 별개의 이중 보호).
+      partialize: (state) => {
+        const { hydrated, ...rest } = state;
+        void hydrated; // 의도적으로 저장 대상에서 제외 — 로딩 게이트일 뿐 계정 데이터가 아니다.
+        return rest;
+      },
+      // 기본 merge(= {...currentState, ...persistedState})는 그 키에 저장된
+      // 값이 아직 없을 때 "지금 메모리에 떠 있던 값 그대로"를 결과로 남겨버린다
+      // — 전환 전 계정의 데이터가 새 계정에도 그대로 보이는 바로 그 버그다.
+      // INITIAL_STATE를 currentState보다 뒤에 덮어써서, 저장된 값이 있으면 그
+      // 값(+누락 필드는 초기값으로 보완), 없으면 무조건 INITIAL_STATE가 되도록
+      // 고정한다 — 결과가 "그 순간 메모리에 뭐가 있었는지"에 전혀 의존하지
+      // 않게 만드는 것이 핵심이다.
+      merge: (persistedState, currentState) => {
+        const stored =
+          persistedState && typeof persistedState === "object"
+            ? (persistedState as Partial<AppState>)
+            : undefined;
+        return { ...currentState, ...INITIAL_STATE, ...stored };
+      },
     }
   )
 );

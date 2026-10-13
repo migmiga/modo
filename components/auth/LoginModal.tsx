@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { useAuthStore } from "@/lib/auth";
@@ -26,6 +26,17 @@ export function LoginModal({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const setDevLoggedIn = useAuthStore((s) => s.setDevLoggedIn);
+  const loginError = useAuthStore((s) => s.loginError);
+  const clearLoginError = useAuthStore((s) => s.clearLoginError);
+
+  // 외부에서 받은 onDismiss(ESC/바깥 클릭/X 전부 이걸로 모인다)는 그대로
+  // 호출하면서, 이 모달이 닫힐 때 안내 문구도 같이 지운다 — 다음에 열렸을 때
+  // 지난번 실패 메시지가 남아있지 않게. 아래 effect가 의존성으로 참조하므로
+  // useCallback으로 고정한다.
+  const handleDismiss = useCallback(() => {
+    clearLoginError();
+    onDismiss();
+  }, [clearLoginError, onDismiss]);
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +49,7 @@ export function LoginModal({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onDismiss();
+        handleDismiss();
         return;
       }
       if (e.key !== "Tab" || !card) return;
@@ -60,14 +71,14 @@ export function LoginModal({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onDismiss]);
+  }, [open, handleDismiss]);
 
   if (!open) return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-5"
-      onMouseDown={onDismiss}
+      onMouseDown={handleDismiss}
     >
       <div
         ref={cardRef}
@@ -99,6 +110,12 @@ export function LoginModal({
           <GoogleLoginButton />
           <KakaoLoginButton />
         </div>
+
+        {/* Google 동의 화면에서 취소하거나 리다이렉트가 실패해 돌아온 경우의
+            안내 — lib/authSync.ts가 URL의 error 쿼리를 보고 채운다. */}
+        {loginError && (
+          <p className="mt-3 text-center text-xs text-[#DC2626]">{loginError}</p>
+        )}
 
         <p className="mt-7 text-center text-xs text-[#D4D4D4]">
           로그인 시 서비스 이용약관에 동의하게 됩니다

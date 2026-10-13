@@ -5,6 +5,9 @@
 // Google Sans가 없는 환경에서는 시스템 sans로 자연히 대체) 위에, 이 카드
 // 디자인이 지정한 테두리색(#E5E5E5)과 radius(6px)를 적용했다.
 
+import { useAuthStore } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseClient";
+
 // Google 공식 "G" 로고(표준 4색 마크) — Sign in with Google 버튼에 그대로
 // 사용하도록 공식적으로 의도된 식별 마크다. 크기·색상 변경 없이 그대로 사용.
 // export: 온보딩의 "연결된 계정" 영역(ConnectedAccountRow)에서도 같은 마크를
@@ -32,16 +35,32 @@ export function GoogleG() {
   );
 }
 
-// 실제 Google OAuth/Identity Services 연동 전 단계 — 클릭해도 로그인 성공
-// 처리나 데이터 저장은 하지 않는다. 사용자에게 보이는 안내는 두지 않고(이전엔
-// 버튼 아래 "곧 연결될 예정이에요"를 띄웠으나, 바로 아래 카카오 버튼에 가려지는
-// 문제가 있었고 애초에 실사용자에게 보일 필요가 없는 안내였다), 미연결 상태를
-// 개발자가 확인하고 싶을 때만 콘솔에 남긴다 — 화면에는 아무 것도 그리지 않으므로
-// 레이아웃에 영향이 없고, 프로덕션 빌드에서는 이 분기 자체가 제거된다.
+// Supabase Auth의 Google OAuth로 리다이렉트한다. 성공하면 Google → Supabase
+// → 이 사이트로 돌아오고, lib/authSync.ts의 onAuthStateChange가 세션을 받아
+// 저장소 전환/프로필 체이닝을 처리한다 — 여기서는 리다이렉트를 "시작"만
+// 한다. NEXT_PUBLIC_SUPABASE_URL/ANON_KEY가 아직 설정되지 않은 환경(예:
+// Supabase 설정 전의 로컬/배포)에서는 이전과 동일하게 아무 일도 하지 않고
+// 개발 모드에서만 콘솔에 남긴다 — 실사용자에게는 아무것도 보이지 않는다.
 export function GoogleLoginButton() {
-  function handleClick() {
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[dev] Google 로그인 — 아직 실제 OAuth가 연결되지 않았습니다.");
+  async function handleClick() {
+    if (!supabase) {
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[dev] Google 로그인 — Supabase 환경변수가 아직 설정되지 않았습니다.");
+      }
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+
+    // 성공 시에는 즉시 Google로 리다이렉트되므로 이 함수로 돌아올 일이 없다
+    // — 여기 도달하는 건 리다이렉트 자체가 시작조차 못 한 경우(네트워크 오류
+    // 등)뿐이다. 취소/거부 후 돌아온 경우의 안내는 lib/authSync.ts가 URL의
+    // error 쿼리를 보고 처리한다.
+    if (error) {
+      useAuthStore.getState().setLoginError("로그인을 시작하지 못했어요. 다시 시도해 주세요.");
     }
   }
 

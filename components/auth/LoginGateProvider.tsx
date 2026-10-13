@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { useAuthStore } from "@/lib/auth";
 import { useAppStore } from "@/lib/store";
@@ -40,10 +40,41 @@ type GateModal = "none" | "login" | "profile";
 export function LoginGateProvider({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const profile = useAppStore((s) => s.profile);
+  const hydrated = useAppStore((s) => s.hydrated);
+  const loginError = useAuthStore((s) => s.loginError);
   const isOnboarded = isLoggedIn && profile !== null;
 
   const [modal, setModal] = useState<GateModal>("none");
   const triggerRef = useRef<HTMLElement | null>(null);
+
+  // 실제 Google 로그인은 전체 페이지 리다이렉트로 완료되기 때문에(콜백 prop을
+  // 불러줄 컴포넌트가 그 순간 없다), 개발자 임시 로그인용 handleLoginSucceeded
+  // 콜백 체인과는 별개로 이 효과가 "상태 자체의 변화"를 구독해 반응한다.
+  //
+  // - hydrated를 함께 확인하는 이유: isLoggedIn이 true가 되는 시점에 그
+  //   계정의 저장된 profile이 아직 복원되기 전이면 profile이 잠깐 null로
+  //   보여, 기존 사용자에게도 프로필 생성 화면이 깜빡 뜰 수 있다. hydrated는
+  //   lib/store.ts의 switchAccountStorage()가 그 계정 키로의 rehydrate를
+  //   끝낸 뒤에만 true가 되므로(app/providers.tsx의 onFinishHydration), 이
+  //   조건이 있어야 "복원된 뒤의 진짜 profile 값"으로만 판단하게 된다.
+  // - modal은 의도적으로 의존성에서 뺐다 — 사용자가 ESC/바깥 클릭으로 직접
+  //   닫아 modal이 "none"으로 바뀌어도 isLoggedIn/hydrated/profile/loginError
+  //   자체는 안 바뀌었으니 이 효과가 다시 실행되지 않고, 그래서 닫자마자
+  //   바로 재오픈되지 않는다.
+  useEffect(() => {
+    // 이 효과는 로컬 UI 상태가 아니라 Supabase/authSync가 비동기로 갱신하는
+    // 외부 인증 상태를 반영하는 용도다 — react-hooks 규칙이 기본적으로
+    // 권장하는 "렌더 중 계산"으로는 표현할 수 없다(로그인은 이 컴포넌트
+    // 트리 바깥, 페이지 리다이렉트 이후에 완료된다).
+    if (loginError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setModal("login");
+      return;
+    }
+    if (isLoggedIn && hydrated && profile === null) {
+      setModal("profile");
+    }
+  }, [isLoggedIn, hydrated, profile, loginError]);
 
   const closeAndRestoreFocus = useCallback(() => {
     setModal("none");
