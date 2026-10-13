@@ -14,7 +14,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { GuestAccountMenu } from "@/components/auth/GuestAccountMenu";
 import { useLoginGate } from "@/components/auth/LoginGateProvider";
+import { useAuthStore } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { FIELD_OPTIONS, OCCUPATION_OPTIONS, PROFILE_STATUS_OPTIONS } from "@/lib/constants";
 import { useAppStore } from "@/lib/store";
@@ -58,6 +60,7 @@ export function SideNav() {
   const pathname = usePathname();
   const hydrated = useAppStore((s) => s.hydrated);
   const profile = useAppStore((s) => s.profile);
+  const guestMode = useAuthStore((s) => s.guestMode);
   const { open } = useLoginGate();
 
   if (!hydrated) return null;
@@ -115,10 +118,11 @@ export function SideNav() {
       </div>
 
       {/* profile이 있다는 건 이 앱에서 항상 "로그인 + 온보딩 완료"와 같은
-          뜻이다(게스트는 구조적으로 profile을 가질 수 없다 — requireLogin
-          게이트) — 그래서 로그인 상태만을 위해 별도 isLoggedIn 분기를 두지
-          않고 이 신호 하나로 로그인/로그아웃 뷰를 가른다. 로그인 없이도 탭
-          이동은 가능해야 하므로, 이 블록 자체는 항상 보여주고 내부만 바뀐다. */}
+          뜻이다(게스트는 구조적으로 profile을 가질 수 없다) — 그래서 로그인
+          상태는 별도 isLoggedIn 분기 없이 이 신호 하나로 가른다. 나머지
+          둘(게스트로 체험 중 / 아직 아무것도 선택 안 함)은 guestMode로
+          구분한다. 로그인 없이도 탭 이동은 가능해야 하므로, 이 블록 자체는
+          항상 보여주고 내부만 바뀐다. */}
       <div className="mt-auto border-t border-border px-5 py-4">
         {profile ? (
           <div className="flex items-center gap-3">
@@ -134,6 +138,17 @@ export function SideNav() {
               </p>
             </div>
             <AccountMenu />
+          </div>
+        ) : guestMode ? (
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ash text-muted">
+              <IconUser size={18} stroke={1.75} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">게스트로 체험 중</p>
+              <p className="truncate text-xs text-muted">이 브라우저에만 저장돼요</p>
+            </div>
+            <GuestAccountMenu />
           </div>
         ) : (
           <button

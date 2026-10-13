@@ -20,6 +20,13 @@ interface AuthState {
   userId: string | null;
   /** Google 로그인 취소/실패 시 LoginModal에 보여줄 안내 문구. */
   loginError: string | null;
+  /** "로그인 없이 체험하기"를 선택했거나(또는 로그인에서 로그아웃해 돌아온)
+   *  상태 — isLoggedIn과 절대 동시에 true가 되지 않는다. requireLogin이
+   *  isLoggedIn 대신 이 값도 함께 확인해 게스트의 핵심 기능 사용을 막지
+   *  않는다. isLoggedIn과 분리해 둔 이유: isLoggedIn을 재사용하면
+   *  LoginGateProvider의 "로그인했는데 프로필이 없다 → 프로필 설정 팝업"
+   *  감시 효과가 게스트에게도 잘못 발동해 프로필 생성을 강요하게 된다. */
+  guestMode: boolean;
   setLoggedIn: (value: boolean) => void;
   /** 개발용 임시 로그인 전용 — 실제 Google/카카오 버튼은 연동 전까지 이 상태를
    *  건드리지 않는다(가짜 로그인 성공 처리 금지). */
@@ -28,6 +35,15 @@ interface AuthState {
   setGoogleSession: (session: { userId: string; email: string | null }) => void;
   /** 로그아웃/세션 만료 시 lib/authSync.ts만 호출한다. */
   clearSession: () => void;
+  /** "로그인 없이 체험하기" 버튼(LoginModal)과 lib/authSync.ts(실제
+   *  로그아웃 후 재진입)가 호출한다. 이미 true여도 다시 호출해도 안전(멱등) —
+   *  호출 자체는 어떤 분석 이벤트도 일으키지 않는다(이벤트는 호출부 책임). */
+  enterGuestMode: () => void;
+  /** "체험 종료하기"(components/auth/GuestAccountMenu.tsx)가 호출한다.
+   *  guestMode 플래그만 내리고, lib/store.ts의 modo-storage:guest 데이터나
+   *  Amplitude identity는 전혀 건드리지 않는다 — 다시 "로그인 없이
+   *  체험하기"를 누르면 그대로 이어서 쓸 수 있어야 한다. */
+  exitGuestMode: () => void;
   setLoginError: (message: string) => void;
   clearLoginError: () => void;
 }
@@ -40,11 +56,14 @@ export const useAuthStore = create<AuthState>()(
       email: null,
       userId: null,
       loginError: null,
+      guestMode: false,
       setLoggedIn: (value) => set({ isLoggedIn: value }),
-      setDevLoggedIn: () => set({ isLoggedIn: true, provider: "dev", email: null, userId: null }),
+      setDevLoggedIn: () => set({ isLoggedIn: true, provider: "dev", email: null, userId: null, guestMode: false }),
       setGoogleSession: ({ userId, email }) =>
-        set({ isLoggedIn: true, provider: "google", email, userId }),
+        set({ isLoggedIn: true, provider: "google", email, userId, guestMode: false }),
       clearSession: () => set({ isLoggedIn: false, provider: null, email: null, userId: null }),
+      enterGuestMode: () => set({ guestMode: true }),
+      exitGuestMode: () => set({ guestMode: false }),
       setLoginError: (message) => set({ loginError: message }),
       clearLoginError: () => set({ loginError: null }),
     }),

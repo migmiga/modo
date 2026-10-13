@@ -38,6 +38,11 @@ export function startAuthSync(): () => void {
   // settledKey에 도달하지만, 그 비동기 대기 중에 더 최신 로그인/로그아웃
   // 이벤트가 들어오면 이 세대 번호로 한 번 더 막는다.
   let generation = 0;
+  // "실제 로그아웃"(직전까지 로그인해 있었음)과 "원래 세션이 없던 최초
+  // 진입/새로고침"을 구분하는 플래그. userId 분기가 true로 올리고, null
+  // 분기가 다시 false로 내린다. 새로고침마다 이 클로저 자체가 새로 생겨 false로
+  // 시작하므로 — 새로고침은 로그아웃이 아니라는 게 핵심 전제다.
+  let wasLoggedIn = false;
 
   async function applySession(userId: string | null, email: string | null) {
     const myGeneration = ++generation;
@@ -52,8 +57,19 @@ export function startAuthSync(): () => void {
     // 실제 profile이 로드된 뒤에야 isLoggedIn을 true로 바꿔야, 기존
     // 사용자에게도 "프로필 없음" 화면이 잠깐 깜빡이지 않는다.
     if (!userId) {
+      const isRealLogout = wasLoggedIn;
       useAuthStore.getState().clearSession();
-      resetIdentity();
+      if (isRealLogout) {
+        // 방금 전까지 로그인해 있었다가 실제로 로그아웃한 경우만: 다음에
+        // 다시 "Google 로그인/체험하기 선택" 화면을 처음부터 보여줄 필요가
+        // 없으니 게스트 상태로 바로 이어주고, 다음 사람이 같은 기기를 써도
+        // 이전 사람 식별값에 이어붙지 않도록 Amplitude 익명 id를 새로 받는다.
+        // 원래 세션이 없던 최초 진입/새로고침은 이 분기를 타지 않으므로,
+        // 게스트가 새로고침할 때마다 device_id가 바뀌는 일이 없다.
+        useAuthStore.getState().enterGuestMode();
+        resetIdentity();
+      }
+      wasLoggedIn = false;
     }
 
     await switchAccountStorage(key);
@@ -66,6 +82,7 @@ export function startAuthSync(): () => void {
     if (userId) {
       useAuthStore.getState().setGoogleSession({ userId, email });
       identifyUser(userId);
+      wasLoggedIn = true;
     }
   }
 

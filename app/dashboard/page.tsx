@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-import { useRequireLogin } from "@/components/auth/LoginGateProvider";
+import { useLoginGate, useRequireLogin } from "@/components/auth/LoginGateProvider";
 import { DateTaskPanel } from "@/components/home/DateTaskPanel";
 import { ExecutionTimeline } from "@/components/home/ExecutionTimeline";
 import { MemoCard } from "@/components/home/MemoCard";
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const requireLogin = useRequireLogin();
+  const { isOnboarded } = useLoginGate();
   const hydrated = useAppStore((s) => s.hydrated);
   const profile = useAppStore((s) => s.profile);
   const goal = useAppStore((s) => s.goal);
@@ -249,7 +250,11 @@ export default function DashboardPage() {
   }, [retroFlow.kind, syncToday]);
 
   useEffect(() => {
-    if (!hydrated || !profile || !hasGoal || !goal) return;
+    // profile 대신 isOnboarded(로그인+프로필 완료 또는 guestMode)로 판단한다
+    // — 그래야 프로필이 없는 게스트도 날짜/완료 조건을 충족하면 회고
+    // 다이얼로그가 열린다. 로그인 사용자 쪽은 isOnboarded가 기존 profile
+    // truthy 조건과 완전히 동일해 동작이 바뀌지 않는다.
+    if (!hydrated || !isOnboarded || !hasGoal || !goal) return;
     if (retroFlow.kind !== "none") return;
 
     // Deferred via setTimeout(0) — same pattern as ExecutionTimeline.tsx's
@@ -284,7 +289,7 @@ export default function DashboardPage() {
     return () => clearTimeout(timeoutId);
   }, [
     hydrated,
-    profile,
+    isOnboarded,
     hasGoal,
     goal,
     retroFlow.kind,

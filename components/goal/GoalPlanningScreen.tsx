@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { useRequireLogin } from "@/components/auth/LoginGateProvider";
 import { GoalForm, type GoalFormValues } from "@/components/goal/GoalForm";
 import { PlanPreviewPanel, type PreviewStatus } from "@/components/goal/PlanPreviewPanel";
 import { StepIndicator } from "@/components/goal/StepIndicator";
@@ -26,6 +27,11 @@ export function GoalPlanningScreen() {
   const confirmPlan = useAppStore((s) => s.confirmPlan);
   const referenceGoalDraft = useAppStore((s) => s.referenceGoalDraft);
   const clearReferenceGoalDraft = useAppStore((s) => s.clearReferenceGoalDraft);
+  // 로그인 사용자뿐 아니라 guestMode(로그인 없이 체험하기)여도 통과한다 —
+  // 여기 말고는 어디서도 "/" 진입 자체를 막지 않으므로, 아직 아무것도
+  // 선택 안 한(로그인도 체험도) 방문자가 실제로 계획을 만들려는 순간 이
+  // requireLogin이 "Google 로그인 / 로그인 없이 체험하기" 선택 팝업을 연다.
+  const requireLogin = useRequireLogin();
 
   const [view, setView] = useState<"form" | "preview">(() => (draftPlan ? "preview" : "form"));
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +99,7 @@ export function GoalPlanningScreen() {
             initialTitle={referenceGoalDraft?.title}
             initialContext={referenceGoalDraft?.contextText}
             isLoading={isLoading}
-            onSubmit={handleGenerate}
+            onSubmit={requireLogin(handleGenerate)}
           />
 
           {isLoading && (
@@ -117,7 +123,7 @@ export function GoalPlanningScreen() {
             draftPlan={draftPlan}
             onEditInputs={() => setView("form")}
             onEditPlan={() => router.push("/goals/review")}
-            onApply={handleApply}
+            onApply={requireLogin(handleApply)}
           />
         </div>
       </div>

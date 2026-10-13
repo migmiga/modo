@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { useAuthStore } from "@/lib/auth";
+import { setEntryMethod, trackGuestStarted } from "@/lib/analytics";
 
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { KakaoLoginButton } from "./KakaoLoginButton";
@@ -17,17 +18,38 @@ export function LoginModal({
   open,
   onDismiss,
   onLoginSucceeded,
+  onGuestStart,
 }: {
   open: boolean;
   /** ESC/바깥 클릭/X — 저장 없이 그냥 닫기. */
   onDismiss: () => void;
   /** 로그인 성공(지금은 개발용 버튼) — 프로필 없으면 설정 팝업으로 이어진다. */
   onLoginSucceeded: () => void;
+  /** "로그인 없이 체험하기" 클릭 — guestMode 전환/분석 이벤트는 이 컴포넌트가
+   *  직접 처리하고, 호출부(LoginGateProvider)는 팝업만 닫는다. */
+  onGuestStart: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const setDevLoggedIn = useAuthStore((s) => s.setDevLoggedIn);
+  const enterGuestMode = useAuthStore((s) => s.enterGuestMode);
+  const guestMode = useAuthStore((s) => s.guestMode);
   const loginError = useAuthStore((s) => s.loginError);
   const clearLoginError = useAuthStore((s) => s.clearLoginError);
+
+  // "로그인 없이 체험하기" 버튼 클릭 — guestMode 전환, entry_method 속성,
+  // guest_started 이벤트까지 한 곳에서 처리한다. 단, 이미 guestMode인
+  // 사용자가(예: 체험 중 "Google로 로그인"을 눌러 이 팝업을 다시 열었다가
+  // 마음을 바꿔 이 버튼을 또 누르는 경우) 다시 눌러도 entry_method/
+  // guest_started를 중복으로 쏘지 않는다 — "최초 선택"이 아니라 "체험
+  // 계속하기"일 뿐이다.
+  function handleGuestStart() {
+    if (!guestMode) {
+      setEntryMethod("guest");
+      trackGuestStarted();
+    }
+    enterGuestMode();
+    onGuestStart();
+  }
 
   // 외부에서 받은 onDismiss(ESC/바깥 클릭/X 전부 이걸로 모인다)는 그대로
   // 호출하면서, 이 모달이 닫힐 때 안내 문구도 같이 지운다 — 다음에 열렸을 때
@@ -111,11 +133,32 @@ export function LoginModal({
           <KakaoLoginButton />
         </div>
 
+        {/* 이미 체험 중인 게스트가 이 팝업을 다시 열어 실제 로그인을 시도하는
+            경우에만 보여준다 — 최초 선택 시점(guestMode 아직 false)에는 잃을
+            체험 데이터가 없으니 불필요한 경고다. */}
+        {guestMode && (
+          <p className="mt-3 text-center text-xs text-muted">
+            로그인하면 지금까지의 체험 데이터는 이어지지 않아요
+          </p>
+        )}
+
         {/* Google 동의 화면에서 취소하거나 리다이렉트가 실패해 돌아온 경우의
             안내 — lib/authSync.ts가 URL의 error 쿼리를 보고 채운다. */}
         {loginError && (
           <p className="mt-3 text-center text-xs text-[#DC2626]">{loginError}</p>
         )}
+
+        {/* "Log in" 구분선과 같은 톤의 구분선 — 로그인 버튼군과 체험 경로를
+            시각적으로 분리한다. */}
+        <div className="mt-5 flex w-full items-center gap-3">
+          <div className="h-px flex-1 bg-[#F5F5F5]" />
+          <span className="text-sm text-black">또는</span>
+          <div className="h-px flex-1 bg-[#F5F5F5]" />
+        </div>
+
+        <button type="button" onClick={handleGuestStart} className="mt-4 text-sm font-medium text-muted underline">
+          로그인 없이 체험하기
+        </button>
 
         <p className="mt-7 text-center text-xs text-[#D4D4D4]">
           로그인 시 서비스 이용약관에 동의하게 됩니다

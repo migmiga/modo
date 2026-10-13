@@ -248,11 +248,19 @@ export const useAppStore = create<AppState>()(
       },
 
       createDraftGoal: (input) => {
+        // profile은 로그인 사용자만 갖고, 게스트는 구조상 null이다(프로필
+        // 생성을 요구하지 않음 — 게스트 체험 기능). generatePlan은 profile의
+        // status/job_role을 실제로 쓰지 않는 레거시 필드라(미사용 — mockAi.ts
+        // 확인됨) 둘 다 없어도 생성 결과에 영향이 없고, user_id도 로그인
+        // 사용자조차 항상 "local-user" 고정값이라(setProfile) 저장소 구분에
+        // 쓰이지 않는 단순 표시용 필드다 — 그래서 profile 유무로 생성 자체를
+        // 막을 이유가 없다. 로그인/체험 선택 여부는 이 함수가 아니라 UI
+        // 레이어(components/goal/GoalPlanningScreen.tsx의 requireLogin)가
+        // 책임진다.
         const profile = get().profile;
-        if (!profile) return "insufficient_time";
 
         const result = generatePlan({
-          profile: { status: profile.status, job_role: profile.job_role },
+          profile: { status: profile?.status, job_role: profile?.job_role },
           goal: {
             title: input.title,
             context: input.contextText,
@@ -273,7 +281,7 @@ export const useAppStore = create<AppState>()(
         const goalId = newId("goal");
         const goal: Goal = {
           goal_id: goalId,
-          user_id: profile.user_id,
+          user_id: profile?.user_id ?? "guest",
           title: input.title,
           context_text: input.contextText,
           start_date: input.startDate,

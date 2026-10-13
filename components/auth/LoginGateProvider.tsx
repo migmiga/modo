@@ -25,7 +25,8 @@ type RequireLogin = <T extends (...args: any[]) => unknown>(
 ) => (...args: Parameters<T>) => ReturnType<T> | undefined;
 
 interface LoginGateContextValue {
-  /** 로그인 + 프로필 설정까지 모두 끝난 상태. */
+  /** 로그인 + 프로필 설정까지 끝났거나, "로그인 없이 체험하기"를 선택한
+   *  게스트 — 둘 중 하나면 로그인 게이트 없이 핵심 기능을 바로 쓸 수 있다. */
   isOnboarded: boolean;
   open: (options?: OpenOptions) => void;
   requireLogin: RequireLogin;
@@ -42,13 +43,22 @@ type GateModal = "none" | "login" | "profile";
 
 export function LoginGateProvider({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const guestMode = useAuthStore((s) => s.guestMode);
   const profile = useAppStore((s) => s.profile);
   const hydrated = useAppStore((s) => s.hydrated);
   const loginError = useAuthStore((s) => s.loginError);
-  const isOnboarded = isLoggedIn && profile !== null;
+  // 이름은 "온보딩 완료"지만 실제 쓰임(components/goal/GoalForm.tsx)은
+  // "로그인 게이트 없이 핵심 기능을 바로 써도 되는가"다 — guestMode도 같은
+  // 자격을 준다. requireLogin과 동일한 조건을 여기서도 그대로 반영한다.
+  const isOnboarded = (isLoggedIn && profile !== null) || guestMode;
 
   const [modal, setModal] = useState<GateModal>("none");
   const triggerRef = useRef<HTMLElement | null>(null);
+  // 최초 진입 안내(Google 로그인/로그인 없이 체험하기 선택)는 새로고침마다
+  // 한 번만 띄운다 — 아래 effect가 매 렌더마다 재확인하진 않도록 가드한다.
+  // 사용자가 직접 닫으면(ESC/바깥 클릭) 그 뒤로는 같은 페이지 로드 안에서
+  // 다시 강제로 열지 않는다.
+  const autoPromptedRef = useRef(false);
 
   // 실제 Google 로그인은 전체 페이지 리다이렉트로 완료되기 때문에(콜백 prop을
   // 불러줄 컴포넌트가 그 순간 없다), 개발자 임시 로그인용 handleLoginSucceeded
@@ -76,8 +86,18 @@ export function LoginGateProvider({ children }: { children: React.ReactNode }) {
     }
     if (isLoggedIn && hydrated && profile === null) {
       setModal("profile");
+      return;
     }
-  }, [isLoggedIn, hydrated, profile, loginError]);
+    // 최초 진입(또는 로그인도 게스트 체험도 아직 선택 안 한 상태) — "Google
+    // 로그인 / 로그인 없이 체험하기"를 고를 수 있는 LoginModal을 한 번
+    // 먼저 보여준다. hydrated를 기다리는 이유는 위 분기와 동일: 전환이 아직
+    // 안 끝났을 때의 isLoggedIn/guestMode 값으로 섣불리 판단하지 않기
+    // 위해서다.
+    if (hydrated && !isLoggedIn && !guestMode && !autoPromptedRef.current) {
+      autoPromptedRef.current = true;
+      setModal("login");
+    }
+  }, [isLoggedIn, guestMode, hydrated, profile, loginError]);
 
   const closeAndRestoreFocus = useCallback(() => {
     setModal("none");
@@ -127,13 +147,22 @@ export function LoginGateProvider({ children }: { children: React.ReactNode }) {
     closeAndRestoreFocus();
   }, [closeAndRestoreFocus]);
 
+  // "로그인 없이 체험하기" — guestMode 전환/분석 이벤트는 LoginModal이 직접
+  // 처리한다(버튼 자체와 같은 파일에 있어야 "클릭 → 상태 전환 → 이벤트"가
+  // 한눈에 보인다, GoogleLoginButton의 자체 클릭 핸들러와 같은 방식). 여기선
+  // 팝업만 닫는다.
+  const handleGuestStart = useCallback(() => {
+    closeAndRestoreFocus();
+  }, [closeAndRestoreFocus]);
+
   const requireLogin = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see RequireLogin's own note above.
     function requireLogin<T extends (...args: any[]) => unknown>(fn: T) {
       return (...args: Parameters<T>): ReturnType<T> | undefined => {
         const loggedIn = useAuthStore.getState().isLoggedIn;
         const hasProfile = useAppStore.getState().profile !== null;
-        if (loggedIn && hasProfile) {
+        const guestMode = useAuthStore.getState().guestMode;
+        if ((loggedIn && hasProfile) || guestMode) {
           return fn(...args) as ReturnType<T>;
         }
         open();
@@ -146,7 +175,12 @@ export function LoginGateProvider({ children }: { children: React.ReactNode }) {
   return (
     <LoginGateContext.Provider value={{ isOnboarded, open, requireLogin, openProfileEdit }}>
       {children}
-      <LoginModal open={modal === "login"} onDismiss={dismiss} onLoginSucceeded={handleLoginSucceeded} />
+      <LoginModal
+        open={modal === "login"}
+        onDismiss={dismiss}
+        onLoginSucceeded={handleLoginSucceeded}
+        onGuestStart={handleGuestStart}
+      />
       <ProfileSetupModal
         open={modal === "profile"}
         onDismiss={dismiss}
