@@ -17,16 +17,16 @@ const pretendard = localFont({
   display: "swap",
 });
 
-// OG 이미지(public/images/og-image-v2.png)는 디자이너가 만든 public/images/OG
-// 태그_2.svg(1200x630, 원본 그대로 보존)를 그대로 PNG로 레스터화한 것 —
-// 카카오톡/노션 등에서 썸네일로 축소될 때 로고·설명 문구가 더 선명하게
-// 읽히도록 기존 OG 태그.svg보다 텍스트를 키우고 굵게 다시 그린 버전이다.
-// 기존 og-image.png/OG 태그.svg는 비교용으로 그대로 남겨두고 건드리지
-// 않는다. SNS 링크 미리보기(카카오톡/트위터 등)가 og:image로 SVG를
-// 안정적으로 지원하지 않아 PNG가 필요하다 — 디자인을 다시 그리지 않고
-// 변환만 한다.
+// OG 이미지(public/images/og-image-v3.png)는 디자이너가 만든 public/images/OG
+// 태그_3.svg(1200x630, 원본 그대로 보존)를 그대로 PNG로 레스터화한 것 —
+// 노션의 작은 북마크 미리보기 등 아주 작은 썸네일에서도 로고·설명 문구가
+// 읽히도록 v2보다 로고/텍스트를 더 키운 버전이다(실측 비교 결과 v2보다
+// 작은 크기 가독성이 우수함을 확인하고 채택). 기존 og-image.png/v2 및
+// 두 SVG 원본은 비교/롤백용으로 그대로 남겨두고 건드리지 않는다. SNS 링크
+// 미리보기(카카오톡/트위터 등)가 og:image로 SVG를 안정적으로 지원하지
+// 않아 PNG가 필요하다 — 디자인을 다시 그리지 않고 변환만 한다.
 const SITE_URL = "https://modo-blond.vercel.app";
-const OG_IMAGE_PATH = "/images/og-image-v2.png";
+const OG_IMAGE_PATH = "/images/og-image-v3.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
